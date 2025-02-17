@@ -2,13 +2,12 @@
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { toast } from 'react-toastify';
-import Auth from '@/utils/Auth';
 import { useRouter } from 'next/navigation';
+import { useUser } from '@/contexts/UserContext';
 
 export default function Perfil() {
-  
     const router = useRouter();
-    const [user, setUser] = useState(null);
+    const { user, updateUser, triggerRefresh } = useUser();
     const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(true);
     const fileInputRef = useRef(null);
@@ -42,7 +41,6 @@ export default function Perfil() {
             });
             if (response.ok) {
                 const userData = await response.json();
-                setUser(userData);
                 setFormData({
                     fullName: userData.fullName || '',
                     email: userData.email || '',
@@ -52,7 +50,7 @@ export default function Perfil() {
                     confirmPassword: ''
                 });
                 setPreviewImage(userData.avatar ? `http://localhost:3001/${userData.avatar}` : null);
-                Auth.updateUser(userData);
+                updateUser(userData); // Atualiza o contexto
             }
         } catch (error) {
             console.error('Erro ao carregar perfil:', error);
@@ -63,8 +61,21 @@ export default function Perfil() {
     };
 
     useEffect(() => {
-        loadProfile();
-    }, []);
+        if (user) {
+            setFormData({
+                fullName: user.fullName || '',
+                email: user.email || '',
+                phone: user.phone || '',
+                currentPassword: '',
+                newPassword: '',
+                confirmPassword: ''
+            });
+            setPreviewImage(user.avatar ? `http://localhost:3001/${user.avatar}` : null);
+            setLoading(false);
+        } else {
+            loadProfile();
+        }
+    }, [user]);
 
     const handleFileSelect = (e) => {
         const file = e.target.files[0];
@@ -89,13 +100,12 @@ export default function Perfil() {
             });
 
             if (response.ok) {
+                const userData = await response.json();
                 setPreviewImage(null);
                 setSelectedImage(null);
-                const userData = await response.json();
-                setUser(userData);
-                Auth.updateUser(userData);
+                updateUser(userData); // Atualiza o contexto
+                triggerRefresh(); // Dispara atualização global
                 toast.success('Foto removida com sucesso');
-                router.refresh();
             } else {
                 toast.error('Erro ao remover foto');
             }
@@ -142,12 +152,11 @@ export default function Perfil() {
 
             if (response.ok) {
                 const updatedUser = await response.json();
-                setUser(updatedUser);
-                Auth.updateUser(updatedUser);
+                updateUser(updatedUser); // Atualiza o contexto
+                triggerRefresh(); // Dispara atualização global
                 setIsEditing(false);
                 setSelectedImage(null);
                 toast.success('Perfil atualizado com sucesso!');
-                router.refresh(); // Recarrega a página
             } else {
                 const error = await response.json();
                 toast.error(error.message);
@@ -191,57 +200,57 @@ export default function Perfil() {
     }
 
     return (
-      <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-8">Meu Perfil</h1>
-      
-      <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex flex-col items-center space-y-4 mb-6">
-              <div className="relative w-32 h-32">
-                  {previewImage ? (
-                      <div className="relative w-32 h-32 rounded-full overflow-hidden">
-                          <Image
-                              src={previewImage}
-                              alt="Foto de perfil"
-                              fill
-                              className="rounded-full object-cover"
-                          />
-                      </div>
-                  ) : (
-                      <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center">
-                          <span className="text-4xl text-gray-500">
-                              {getInitials(user?.fullName)}
-                          </span>
-                      </div>
-                  )}
-              </div>
-              {isEditing && (
-                  <div className="flex space-x-4">
-                      <button
-                          onClick={() => fileInputRef.current?.click()}
-                          className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                          disabled={loading}
-                      >
-                          Alterar foto
-                      </button>
-                      {previewImage && (
-                          <button
-                              onClick={handleRemovePhoto}
-                              className="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
-                              disabled={loading}
-                          >
-                              Remover foto
-                          </button>
-                      )}
-                  </div>
-              )}
-              <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  accept="image/*"
-                  onChange={handleFileSelect}
-              />
-          </div>
+        <div className="max-w-4xl mx-auto p-6">
+            <h1 className="text-3xl font-bold mb-8">Meu Perfil</h1>
+
+            <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex flex-col items-center space-y-4 mb-6">
+                    <div className="relative w-32 h-32">
+                        {previewImage ? (
+                            <div className="relative w-32 h-32 rounded-full overflow-hidden">
+                                <Image
+                                    src={previewImage}
+                                    alt="Foto de perfil"
+                                    fill
+                                    className="rounded-full object-cover"
+                                />
+                            </div>
+                        ) : (
+                            <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center">
+                                <span className="text-4xl text-gray-500">
+                                    {getInitials(user?.fullName)}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                    {isEditing && (
+                        <div className="flex space-x-4">
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                                disabled={loading}
+                            >
+                                Alterar foto
+                            </button>
+                            {previewImage && (
+                                <button
+                                    onClick={handleRemovePhoto}
+                                    className="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
+                                    disabled={loading}
+                                >
+                                    Remover foto
+                                </button>
+                            )}
+                        </div>
+                    )}
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleFileSelect}
+                    />
+                </div>
 
                 {isEditing ? (
                     <form onSubmit={handleSubmit} className="space-y-4">
@@ -252,7 +261,7 @@ export default function Perfil() {
                             <input
                                 type="text"
                                 value={formData.fullName}
-                                onChange={(e) => setFormData({...formData, fullName: e.target.value})}
+                                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                 required
                             />
@@ -265,7 +274,7 @@ export default function Perfil() {
                             <input
                                 type="email"
                                 value={formData.email}
-                                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                 required
                             />
@@ -278,14 +287,14 @@ export default function Perfil() {
                             <input
                                 type="text"
                                 value={formData.phone}
-                                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                             />
                         </div>
 
                         <div className="border-t pt-4 mt-4">
                             <h3 className="text-lg font-medium mb-4">Alterar Senha</h3>
-                            
+
                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">
@@ -294,7 +303,7 @@ export default function Perfil() {
                                     <input
                                         type="password"
                                         value={formData.currentPassword}
-                                        onChange={(e) => setFormData({...formData, currentPassword: e.target.value})}
+                                        onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                     />
                                 </div>
@@ -306,7 +315,7 @@ export default function Perfil() {
                                     <input
                                         type="password"
                                         value={formData.newPassword}
-                                        onChange={(e) => setFormData({...formData, newPassword: e.target.value})}
+                                        onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                     />
                                 </div>
@@ -318,7 +327,7 @@ export default function Perfil() {
                                     <input
                                         type="password"
                                         value={formData.confirmPassword}
-                                        onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
+                                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                     />
                                 </div>

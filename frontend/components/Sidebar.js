@@ -8,7 +8,7 @@ import { useUser } from '@/contexts/UserContext';
 import { getUserCompany } from '@/services/api';
 
 export default function Sidebar() {
-    const { user, loadUser } = useUser();
+    const { user } = useUser(); // Simplificado, pois o contexto já gerencia a atualização
     const router = useRouter();
     const isAdmin = Auth.isAdmin();
     const [userCompany, setUserCompany] = useState(null);
@@ -26,7 +26,7 @@ export default function Sidebar() {
         if (user) {
             fetchUserCompany();
         }
-    }, [user]);
+    }, [user]); // Depende apenas 
     // Função para pegar as iniciais do nome
     const getInitials = (name) => {
         if (!name) return '';
