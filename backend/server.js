@@ -170,6 +170,23 @@ function createTables() {
         FOREIGN KEY (company_id) REFERENCES companies(id)
     )
 `);
+        db.run(`
+    CREATE TABLE IF NOT EXISTS customers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT,
+        phone TEXT,
+        cpf TEXT UNIQUE,
+        address TEXT,
+        city TEXT,
+        state TEXT,
+        postal_code TEXT,
+        notes TEXT,
+        company_id INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (company_id) REFERENCES companies(id)
+    )
+`);
     });
 }
 // Database setup
@@ -664,7 +681,7 @@ app.post('/api/product-categories', verifyToken, isAdmin, (req, res) => {
     const { name } = req.body;
     db.run('INSERT INTO product_categories (name) VALUES (?)',
         [name],
-        function(err) {
+        function (err) {
             if (err) {
                 return res.status(500).json({ message: 'Erro ao criar categoria' });
             }
@@ -683,7 +700,7 @@ app.get('/api/products', verifyToken, (req, res) => {
         WHERE p.company_id = ?
         ORDER BY p.name
     `;
-    
+
     db.all(query, [companyId], (err, rows) => {
         if (err) {
             return res.status(500).json({ message: 'Erro ao buscar produtos' });
@@ -745,7 +762,7 @@ app.post('/api/products', verifyToken, isAdmin, upload.single('image'), (req, re
         numericValues.minimum_stock,
         unit,
         numericValues.company_id
-    ], function(err) {
+    ], function (err) {
         if (err) {
             console.error('Erro ao criar produto:', err);
             return res.status(500).json({ message: 'Erro ao criar produto' });
@@ -831,7 +848,7 @@ app.put('/api/products/:id', verifyToken, isAdmin, upload.single('image'), async
         updateQuery += ' WHERE id = ?';
         params.push(id);
 
-        db.run(updateQuery, params, function(err) {
+        db.run(updateQuery, params, function (err) {
             if (err) {
                 return res.status(500).json({ message: 'Erro ao atualizar produto' });
             }
@@ -870,7 +887,7 @@ app.delete('/api/products/:id', verifyToken, isAdmin, async (req, res) => {
         });
 
         // Remove o produto do banco de dados
-        db.run('DELETE FROM products WHERE id = ?', [id], function(err) {
+        db.run('DELETE FROM products WHERE id = ?', [id], function (err) {
             if (err) {
                 return res.status(500).json({ message: 'Erro ao deletar produto' });
             }
@@ -892,6 +909,177 @@ app.delete('/api/products/:id', verifyToken, isAdmin, async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: 'Erro ao deletar produto' });
     }
+});
+
+app.get('/api/customers', verifyToken, (req, res) => {
+    const companyId = req.query.companyId;
+
+    if (!companyId) {
+        return res.status(400).json({ message: 'Company ID is required' });
+    }
+
+    db.all('SELECT * FROM customers WHERE company_id = ? ORDER BY name', [companyId], (err, rows) => {
+        if (err) {
+            console.error('Error fetching customers:', err);
+            return res.status(500).json({ message: 'Error fetching customers' });
+        }
+        res.json(rows);
+    });
+});
+
+// Get a single customer
+app.get('/api/customers/:id', verifyToken, (req, res) => {
+    const { id } = req.params;
+
+    db.get('SELECT * FROM customers WHERE id = ?', [id], (err, customer) => {
+        if (err) {
+            return res.status(500).json({ message: 'Error fetching customer' });
+        }
+        if (!customer) {
+            return res.status(404).json({ message: 'Customer not found' });
+        }
+        res.json(customer);
+    });
+});
+
+// Create a new customer
+app.post('/api/customers', verifyToken, (req, res) => {
+    const {
+        name,
+        email,
+        phone,
+        cpf,
+        address,
+        city,
+        state,
+        postal_code,
+        notes,
+        company_id
+    } = req.body;
+
+    db.run(`
+        INSERT INTO customers (
+            name,
+            email,
+            phone,
+            cpf,
+            address,
+            city,
+            state,
+            postal_code,
+            notes,
+            company_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+        name,
+        email,
+        phone,
+        cpf,
+        address,
+        city,
+        state,
+        postal_code,
+        notes,
+        company_id
+    ], function (err) {
+        if (err) {
+            console.error('Error creating customer:', err);
+            return res.status(500).json({ message: 'Error creating customer' });
+        }
+        res.json({
+            id: this.lastID,
+            name,
+            email,
+            phone,
+            cpf,
+            address,
+            city,
+            state,
+            postal_code,
+            notes,
+            company_id
+        });
+    });
+});
+
+// Update a customer
+app.put('/api/customers/:id', verifyToken, (req, res) => {
+    const { id } = req.params;
+    const {
+        name,
+        email,
+        phone,
+        cpf,
+        address,
+        city,
+        state,
+        postal_code,
+        notes,
+        company_id
+    } = req.body;
+
+    db.run(`
+        UPDATE customers 
+        SET name = ?,
+            email = ?,
+            phone = ?,
+            cpf = ?,
+            address = ?,
+            city = ?,
+            state = ?,
+            postal_code = ?,
+            notes = ?,
+            company_id = ?
+        WHERE id = ?
+    `, [
+        name,
+        email,
+        phone,
+        cpf,
+        address,
+        city,
+        state,
+        postal_code,
+        notes,
+        company_id,
+        id
+    ], function (err) {
+        if (err) {
+            console.error('Error updating customer:', err);
+            return res.status(500).json({ message: 'Error updating customer' });
+        }
+        if (this.changes === 0) {
+            return res.status(404).json({ message: 'Customer not found' });
+        }
+        res.json({
+            id,
+            name,
+            email,
+            phone,
+            cpf,
+            address,
+            city,
+            state,
+            postal_code,
+            notes,
+            company_id
+        });
+    });
+});
+
+// Delete a customer
+app.delete('/api/customers/:id', verifyToken, (req, res) => {
+    const { id } = req.params;
+
+    db.run('DELETE FROM customers WHERE id = ?', [id], function (err) {
+        if (err) {
+            return res.status(500).json({ message: 'Error deleting customer' });
+        }
+        if (this.changes === 0) {
+            return res.status(404).json({ message: 'Customer not found' });
+        }
+        res.json({ message: 'Customer deleted successfully' });
+    });
 });
 
 // Inicialização do servidor
