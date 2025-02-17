@@ -7,7 +7,7 @@ export default function Dashboard() {
     const router = useRouter();
 
     useEffect(() => {
-        router.push('/dashboard/perfil');
+        router.push('/inicio');
     }, []);
 
     return null;
